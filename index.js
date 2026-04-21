@@ -7,9 +7,16 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // Connect to MongoDB
-const MONGO_URL = process.env.MONGO_URL || process.env.MONGODB_URL;
+const MONGO_URL =
+  process.env.MONGO_URL ||
+  process.env.MONGODB_URL ||
+  process.env.DATABASE_URL ||
+  process.env.MONGO_PRIVATE_URL;
+
 if (!MONGO_URL) {
-  console.error('ERROR: MONGO_URL environment variable not set');
+  console.error('ERROR: No MongoDB connection string found.');
+  console.error('Checked: MONGO_URL, MONGODB_URL, DATABASE_URL, MONGO_PRIVATE_URL');
+  console.error('Available env vars:', Object.keys(process.env).filter(k => /mongo|db|database/i.test(k)));
   process.exit(1);
 }
 
