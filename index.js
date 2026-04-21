@@ -5,6 +5,7 @@ const app = express();
 const db = new Database('data.db');
 
 app.use(express.json());
+app.use(express.static('public'));
 
 // Init table
 db.exec(`

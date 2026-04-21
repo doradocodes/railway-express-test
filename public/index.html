@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Railway Express Test</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0f0f0f;
+      color: #e5e5e5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 60px 20px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    p.subtitle {
+      color: #888;
+      margin-bottom: 40px;
+      font-size: 0.95rem;
+    }
+
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 28px;
+      width: 100%;
+      max-width: 480px;
+      margin-bottom: 24px;
+    }
+
+    form {
+      display: flex;
+      gap: 10px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 10px 14px;
+      background: #0f0f0f;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #e5e5e5;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input[type="text"]:focus { border-color: #666; }
+
+    button {
+      padding: 10px 20px;
+      background: #e5e5e5;
+      color: #0f0f0f;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    button:hover { background: #fff; }
+
+    .list-card h2 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #555;
+      margin-bottom: 16px;
+    }
+
+    ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: #0f0f0f;
+      border: 1px solid #222;
+      border-radius: 8px;
+      font-size: 0.95rem;
+    }
+
+    li span.ts {
+      font-size: 0.75rem;
+      color: #555;
+    }
+
+    li button.del {
+      background: transparent;
+      color: #666;
+      font-size: 1rem;
+      padding: 0;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: color 0.15s, background 0.15s;
+    }
+
+    li button.del:hover { color: #e5e5e5; background: #2a2a2a; }
+
+    .empty {
+      color: #444;
+      font-size: 0.9rem;
+      text-align: center;
+      padding: 20px 0;
+    }
+
+    .error {
+      color: #f87171;
+      font-size: 0.85rem;
+      margin-top: 10px;
+      min-height: 18px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Railway Express</h1>
+  <p class="subtitle">Express + SQLite demo app</p>
+
+  <div class="card">
+    <form id="add-form">
+      <input type="text" id="name-input" placeholder="Item name..." autocomplete="off" />
+      <button type="submit">Add</button>
+    </form>
+    <p class="error" id="error-msg"></p>
+  </div>
+
+  <div class="card list-card">
+    <h2>Items</h2>
+    <ul id="items-list"><li class="empty">Loading...</li></ul>
+  </div>
+
+  <script>
+    const list = document.getElementById('items-list');
+    const form = document.getElementById('add-form');
+    const input = document.getElementById('name-input');
+    const errorMsg = document.getElementById('error-msg');
+
+    async function loadItems() {
+      const res = await fetch('/items');
+      const items = await res.json();
+      render(items);
+    }
+
+    function render(items) {
+      if (!items.length) {
+        list.innerHTML = '<li class="empty">No items yet.</li>';
+        return;
+      }
+      list.innerHTML = items.map(item => `
+        <li data-id="${item.id}">
+          <span>${escapeHtml(item.name)}</span>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span class="ts">${new Date(item.created_at).toLocaleDateString()}</span>
+            <button class="del" onclick="deleteItem(${item.id})" title="Delete">×</button>
+          </div>
+        </li>
+      `).join('');
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = input.value.trim();
+      errorMsg.textContent = '';
+      if (!name) { errorMsg.textContent = 'Name cannot be empty.'; return; }
+
+      const res = await fetch('/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        errorMsg.textContent = err.error;
+        return;
+      }
+
+      input.value = '';
+      loadItems();
+    });
+
+    async function deleteItem(id) {
+      await fetch(`/items/${id}`, { method: 'DELETE' });
+      loadItems();
+    }
+
+    loadItems();
+  </script>
+</body>
+</html>
