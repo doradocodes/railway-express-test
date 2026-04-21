@@ -1,39 +1,46 @@
 const express = require('express');
-const Database = require('better-sqlite3');
+const mongoose = require('mongoose');
 
 const app = express();
-const db = new Database('data.db');
 
 app.use(express.json());
 app.use(express.static('public'));
 
-// Init table
-db.exec(`
-  CREATE TABLE IF NOT EXISTS items (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  )
-`);
+// Connect to MongoDB
+const MONGO_URL = process.env.MONGO_URL || process.env.MONGODB_URL;
+if (!MONGO_URL) {
+  console.error('ERROR: MONGO_URL environment variable not set');
+  process.exit(1);
+}
+
+mongoose.connect(MONGO_URL)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => { console.error('MongoDB connection error:', err); process.exit(1); });
+
+// Schema
+const Item = mongoose.model('Item', new mongoose.Schema({
+  name: { type: String, required: true },
+  created_at: { type: Date, default: Date.now }
+}));
 
 // GET all items
-app.get('/items', (req, res) => {
-  const items = db.prepare('SELECT * FROM items').all();
-  res.json(items);
+app.get('/items', async (req, res) => {
+  const items = await Item.find().sort({ created_at: -1 });
+  res.json(items.map(i => ({ id: i._id, name: i.name, created_at: i.created_at })));
 });
 
 // POST new item
-app.post('/items', (req, res) => {
+app.post('/items', async (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: 'name required' });
-  const result = db.prepare('INSERT INTO items (name) VALUES (?)').run(name);
-  res.status(201).json({ id: result.lastInsertRowid, name });
+  const item = await Item.create({ name });
+  res.status(201).json({ id: item._id, name: item.name });
 });
 
 // DELETE item
-app.delete('/items/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM items WHERE id = ?').run(req.params.id);
-  if (result.changes === 0) return res.status(404).json({ error: 'not found' });
+app.delete('/items/:id', async (req, res) => {
+  const result = await Item.findByIdAndDelete(req.params.id);
+  if (!result) return res.status(404).json({ error: 'not found' });
   res.status(204).send();
 });
 
